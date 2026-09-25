@@ -2,8 +2,8 @@
 
 **Socio Formador:** Hospital de Diagnóstico
 **Integrantes:**
-- Fernanda Pocasangre — usuario de GitHub: fernandapocaa-tech
-- Alejandra Palma — usuario de GitHub: alepal1
+- [Fernanda Pocasangre] — usuario de GitHub: fernandapocaa-tech
+- [Alejandra Palma] — usuario de GitHub: alepal1
 
 ## Objetivo
 
