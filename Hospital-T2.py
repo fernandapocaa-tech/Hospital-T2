@@ -8,6 +8,8 @@ app = Flask(__name__)
 # Ajusta estos numeros si tu ficha indica que el checklist varia por perfil
 # (por ejemplo: medico=6, administrativo=4). Si es un numero fijo para todos,
 # puedes dejar solo DOCUMENTOS_REQUERIDOS y quitar el diccionario.
+# Checklist confirmado con RRHH del Hospital de Diagnostico segun ficha del reto
+Baja hasta el final de la página, en el mensaje del commit escribe algo como "Agrego comentario de validacion del checklist"
 DOCUMENTOS_REQUERIDOS = 5
 
 
