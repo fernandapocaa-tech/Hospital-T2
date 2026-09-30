@@ -24,3 +24,38 @@ def slug(texto):
     texto = unicodedata.normalize("NFKD", texto)
     return "".join(c for c in texto if not unicodedata.combining(c))
     
+@app.route('/expedientes')
+def mostrar_expedientes():
+    matriz_empleados = []
+
+    for emp in EMPLEADOS_DB:
+        docs_requeridos = DOCUMENTOS_PERFIL.get(emp["perfil"], [])
+        estado_docs = {}
+
+        for doc in TODOS_DOCUMENTOS:
+            if doc not in docs_requeridos:
+                estado_docs[doc] = "No aplica"
+                continue
+
+            entregado = doc in emp["docs"]
+
+            parametro = slug(emp["nombre"]) + "_" + slug(doc)
+            valor_url = request.args.get(parametro)
+            if valor_url == "si":
+                entregado = True
+            elif valor_url == "no":
+                entregado = False
+
+            estado_docs[doc] = "Completo" if entregado else "Pendiente"
+
+        matriz_empleados.append({
+            "nombre": emp["nombre"],
+            "perfil": emp["perfil"],
+            "estados": estado_docs
+        })
+
+    return render_template('expedientes.html', empleados=matriz_empleados, documentos=TODOS_DOCUMENTOS)
+
+
+if _name_ == '_main_':
+    app.run(debug=True)
