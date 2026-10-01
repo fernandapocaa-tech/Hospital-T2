@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Expedientes - Hospital de Diagnostico</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <h1>Expedientes digitales del personal</h1>
+  <p class="subtitulo">Hospital de Diagnostico</p>
+  <table>
+    <tr>
+      <th>Empleado</th>
+      <th>Perfil</th>
+      {% for doc in documentos %}
+      <th>{{ doc }}</th>
+      {% endfor %}
+    </tr>
+    {% for emp in empleados %}
+    <tr>
+      <td>{{ emp.nombre }}</td>
+      <td><span class="badge badge-{{ emp.perfil }}">{{ emp.perfil }}</span></td>
+      {% for doc in documentos %}
+        {% set estado = emp.estados[doc] %}
+        {% if estado == "Completo" %}
+        <td class="ok">Completo</td>
+        {% elif estado == "Pendiente" %}
+        <td class="pendiente">Pendiente</td>
+        {% else %}
+        <td class="no-aplica">No aplica</td>
+        {% endif %}
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </table>
+</body>
+</html>
