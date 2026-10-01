@@ -57,5 +57,5 @@ def mostrar_expedientes():
     return render_template('expedientes.html', empleados=matriz_empleados, documentos=TODOS_DOCUMENTOS)
 
 
-if _name_ == '_main_':
+  if __name__ == '__main__':
     app.run(debug=True)
