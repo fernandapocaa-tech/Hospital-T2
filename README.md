@@ -12,52 +12,176 @@ digitales del personal del Hospital de Diagnóstico: por cada empleado y cada
 documento, dice si ese documento está Completo, Pendiente, o si No aplica a
 su perfil.
 
-## Cómo están guardados los datos
+---
 
-Los documentos entregados de cada empleado se guardan en un diccionario
-dentro de una lista (EMPLEADOS_DB), donde cada empleado tiene su nombre, su
-perfil, y la lista de documentos que ya entregó. Es la misma idea de "datos
-de dos dimensiones" vista en clase (como una matriz), solo que en vez de
-True/False por cada casilla, aquí se guarda directamente la lista de los
-documentos que sí entregó.
+## 1. El checklist por perfil
 
-## Cómo funciona la lógica de decisión
+```python
+DOCUMENTOS_PERFIL = {
+    "administrativo": ["DUI", "Título", "Antecedentes Penal", "Solvencia PNP"],
+    "medico": ["DUI", "Título", "Antecedentes Penal", "Solvencia PNP", "Colegiatura médica", "Especialidad"],
+    "enfermeria": ["DUI", "Título", "Antecedentes Penal", "Solvencia PNP", "Junta de Vigilancia"]
+}
+```
 
-Por cada empleado, el programa recorre la lista completa de documentos
-posibles (TODOS_DOCUMENTOS) y decide el estado de cada uno con if/elif/else:
+Este diccionario guarda, para cada perfil de empleado, la lista de documentos
+que le exige su checklist. Esto refleja una regla de negocio confirmada en
+la ficha del reto: el checklist no es el mismo para todos, varía según si el
+empleado es administrativo, médico o de enfermería.
 
-1. Si el documento no está en la lista de documentos requeridos para el
-   perfil de ese empleado -> el estado es "No aplica".
-2. Si el documento sí aplica, se revisa si el empleado ya lo entregó
-   (comparando contra su lista de documentos entregados, o contra lo que
-   venga en la URL).
-3. Si no lo ha entregado -> "Pendiente". Si ya lo entregó -> "Completo".
+---
 
-Esto es exactamente un bucle dentro de otro bucle: el de afuera recorre cada
-empleado, y el de adentro recorre cada documento posible para ese empleado.
+## 2. La lista de empleados
 
-## Cómo funcionan los parámetros por URL
+```python
+EMPLEADOS_DB = [
+    {"nombre": "Ana", "perfil": "administrativo", "docs": ["DUI", "Título", "Antecedentes Penal", "Solvencia PNP"]},
+    {"nombre": "Carlos", "perfil": "medico", "docs": ["DUI", "Título", "Antecedentes Penal", "Colegiatura médica"]},
+    {"nombre": "Maria", "perfil": "enfermeria", "docs": ["DUI", "Título", "Antecedentes Penal", "Solvencia PNP", "Junta de Vigilancia"]}
+]
+```
 
-Igual que en el material de la semana, cada casilla de la tabla se puede
-cambiar sin tocar el código, usando un parámetro con el nombre del empleado
-y el documento pegados con guión bajo, por ejemplo:
+Cada empleado es un diccionario con su nombre, su perfil, y la lista de
+documentos que YA entregó. Esta lista (`docs`) se compara más adelante
+contra el checklist de su perfil para saber qué le falta.
 
-- /expedientes?carlos_colegiatura_medica=no
-- /expedientes?ana_dui=no
+---
 
-Si el nombre del parámetro no coincide con ningún empleado o documento real,
-Flask simplemente lo ignora y la casilla conserva su valor original.
+## 3. La función slug
 
-## Cómo está separado el proyecto
+```python
+def slug(texto):
+    texto = texto.lower().replace(" ", "_")
+    texto = unicodedata.normalize("NFKD", texto)
+    return "".join(c for c in texto if not unicodedata.combining(c))
+```
 
-Siguiendo la separación de responsabilidades de Flask (Python calcula, HTML
-dibuja, CSS da estilo), el proyecto queda dividido así:
+Convierte un texto a una forma simple para usarlo como nombre de parámetro
+en la URL: minúsculas, sin espacios, sin acentos. Por ejemplo,
+`"Colegiatura médica"` se convierte en `"colegiatura_medica"`. Esto permite
+armar nombres de parámetro válidos para la URL a partir de nombres que sí
+tienen espacios y acentos.
 
-| Archivo | Lenguaje | Su trabajo |
-|---|---|---|
-| Hospital-T2.py | Python | Calcula el estado de cada documento (la logica de decision) |
-| templates/expedientes.html | HTML + Jinja | Dibuja la tabla con los datos ya calculados |
-| static/style.css | CSS | Da el estilo y los colores a la tabla |
+---
+
+## 4. La ruta y la lógica de decisión
+
+```python
+@app.route('/expedientes')
+def mostrar_expedientes():
+    matriz_empleados = []
+
+    for emp in EMPLEADOS_DB:
+        docs_requeridos = DOCUMENTOS_PERFIL.get(emp["perfil"], [])
+        estado_docs = {}
+
+        for doc in TODOS_DOCUMENTOS:
+            if doc not in docs_requeridos:
+                estado_docs[doc] = "No aplica"
+                continue
+
+            entregado = doc in emp["docs"]
+
+            parametro = slug(emp["nombre"]) + "_" + slug(doc)
+            valor_url = request.args.get(parametro)
+            if valor_url == "si":
+                entregado = True
+            elif valor_url == "no":
+                entregado = False
+
+            estado_docs[doc] = "Completo" if entregado else "Pendiente"
+
+        matriz_empleados.append({
+            "nombre": emp["nombre"],
+            "perfil": emp["perfil"],
+            "estados": estado_docs
+        })
+
+    return render_template('expedientes.html', empleados=matriz_empleados, documentos=TODOS_DOCUMENTOS)
+```
+
+Aquí está el corazón de la lógica de decisión, con un bucle dentro de otro
+bucle:
+
+- El **bucle de afuera** (`for emp in EMPLEADOS_DB`) recorre cada empleado.
+- El **bucle de adentro** (`for doc in TODOS_DOCUMENTOS`) recorre, para ese
+  empleado, cada documento posible de la tabla.
+
+Por cada documento, la decisión es exactamente if/elif/else:
+
+1. **Si el documento no está en el checklist de su perfil** → el estado es
+   `"No aplica"`, y se pasa al siguiente documento con `continue`.
+2. **Si el documento sí aplica**, se revisa si ya lo entregó (comparando
+   contra su lista `docs`), y la URL puede cambiar ese valor con un
+   parámetro como `?carlos_colegiatura_medica=no`.
+3. Según si lo entregó o no, el estado queda en `"Completo"` o `"Pendiente"`.
+
+---
+
+## 5. La plantilla HTML (con Jinja)
+
+```html
+{% for emp in empleados %}
+<tr>
+  <td>{{ emp.nombre }}</td>
+  <td><span class="badge badge-{{ emp.perfil }}">{{ emp.perfil }}</span></td>
+  {% for doc in documentos %}
+    {% set estado = emp.estados[doc] %}
+    {% if estado == "Completo" %}
+    <td class="ok">Completo</td>
+    {% elif estado == "Pendiente" %}
+    <td class="pendiente">Pendiente</td>
+    {% else %}
+    <td class="no-aplica">No aplica</td>
+    {% endif %}
+  {% endfor %}
+</tr>
+{% endfor %}
+```
+
+La plantilla recibe la matriz ya calculada desde Python (`empleados` y
+`documentos`) y solo se encarga de **dibujarla**: no calcula nada, solo
+decide qué clase de CSS ponerle a cada celda según el estado que ya le
+llegó listo. Por eso la lógica de decisión real vive en `Hospital-T2.py`,
+no aquí.
+
+---
+
+## 6. El CSS (static/style.css)
+
+El CSS no calcula nada: solo le da color a las clases que la plantilla ya
+puso. Por ejemplo, la clase `.ok` se pinta de verde, `.pendiente` de rojo, y
+`.no-aplica` de gris:
+
+```css
+.ok { background: #e9f9ee; color: #1a7a34; font-weight: bold; }
+.pendiente { background: #fdecec; color: #b3261e; font-weight: bold; }
+.no-aplica { background: #f2f2f2; color: #8a8f98; font-style: italic; }
+```
+
+---
+
+## Cómo ejecutar el proyecto
+
+```bash
+pip install flask
+python Hospital-T2.py
+```
+
+El servidor corre en `http://127.0.0.1:5000/`, y la tabla se ve en:
+
+```
+http://127.0.0.1:5000/expedientes
+```
+
+## Parámetros por URL
+
+Cada casilla se puede cambiar sin tocar el código, por ejemplo:
+
+```
+http://127.0.0.1:5000/expedientes?carlos_colegiatura_medica=no
+http://127.0.0.1:5000/expedientes?ana_dui=no
+```
 
 ## Checklist de documentos por perfil
 
@@ -67,26 +191,13 @@ dibuja, CSS da estilo), el proyecto queda dividido así:
 | Médico | DUI, Título, Antecedentes Penal, Solvencia PNP, Colegiatura médica, Especialidad |
 | Enfermería | DUI, Título, Antecedentes Penal, Solvencia PNP, Junta de Vigilancia |
 
-## Tecnología
-
-- Python 3
-- Flask
-
-## Cómo ejecutar el proyecto
-
-Instala Flask con: pip install flask
-
-Luego ejecuta: python Hospital-T2.py
-
-El servidor corre en http://127.0.0.1:5000/, y la tabla se ve en
-http://127.0.0.1:5000/expedientes
-
 ## Cierre: lo que aplicamos en este proyecto
 
 | Habilidad | Dónde se aplicó |
 |---|---|
 | Estructuras de decisión if/elif/else | Para decidir el estado de cada documento (Completo, Pendiente, No aplica) |
 | Datos de dos dimensiones | EMPLEADOS_DB guarda varios empleados, cada uno con su propia lista de documentos |
+| Bucles anidados | El bucle de afuera recorre empleados, el de adentro recorre documentos |
 | Separar la lógica de la página | Hospital-T2.py calcula, expedientes.html dibuja, style.css da estilo |
 | Parámetros en la URL | Cada casilla se puede cambiar desde la URL sin tocar el código |
 
@@ -94,5 +205,5 @@ http://127.0.0.1:5000/expedientes
 
 (Ver imágenes en la carpeta /capturas de este repositorio.)
 
-(El documento con el levantamiento de la lógica de decisión (paso previo)
+(El documento con el levantamiento completo de la lógica de decisión
 se entrega por separado en Word.)
